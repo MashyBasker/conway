@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
+#include <errno.h>
 
 #include "conway.h"
 
@@ -9,8 +10,8 @@ int ARENA[HEIGHT][WIDTH] = { 0 };
 
 void generate_random_arena()
 {
-    for(size_t y = 0; y < HEIGHT; y++) {
-        for(size_t x = 0; x < WIDTH; x++) {
+    for(size_t y = 0; y < HEIGHT / 2; y++) {
+        for(size_t x = 0; x < WIDTH / 2; x++) {
             ARENA[y][x] = rand() % 2;
         }
     }
@@ -78,9 +79,22 @@ void update_arena()
     }
 }
 
-void delay(long t)
+int delay_milli(long t)
 {
-    for(long i = 0; i < t; i++);
+    struct timespec ts;
+    int ret;
+    if(t < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    ts.tv_sec = t / 1000;
+    ts.tv_nsec = (t % 1000) * 1000000;
+
+    do {
+        ret = nanosleep(&ts, &ts);
+    } while(ret && errno == EINTR);
+
+    return ret;
 }
 
 void display_arena()
@@ -104,10 +118,14 @@ int main()
     srand(time(0));
     generate_random_arena();
     display_arena();
+    long long it = 0;
     for(;;) {
         update_arena();
         display_arena();
-        delay(10000000000000000);
+        printf("Iteration: %lld\n\n", it++);
+        if(delay_milli(100) == -1) {
+            perror("[error] could not delay");
+        }
     }
     return 0;
 }
